@@ -1,0 +1,1353 @@
+<!doctype html>
+<html lang="id">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Opname Material</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        #scannerVideo {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        .scanner-overlay {
+            position: relative;
+        }
+        .scanner-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 100px;
+            border: 2px solid #10B981;
+            border-radius: 8px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="bg-gradient-to-br from-blue-900 via-blue-800 to-red-900 min-h-full p-3 sm:p-4 md:p-6">
+  <div class="max-w-7xl mx-auto"><!-- Header -->
+   <div class="bg-white rounded-lg shadow-lg p-4 sm:p-5 md:p-6 mb-4 sm:mb-6">
+    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-2">📋 Stock Opname Material</h1>
+    <p class="text-sm sm:text-base text-gray-600">Sistem manajemen stock opname material dengan import Excel dan barcode scanner</p>
+   </div><!-- Import Section -->
+   <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+    <h2 class="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">📁 Import Master Data</h2>
+    <div class="flex flex-col gap-3 sm:gap-4">
+     <div class="w-full"><input type="file" id="excelFile" accept=".xlsx,.xls" class="block w-full text-xs sm:text-sm text-gray-500 file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+      <p class="text-xs text-gray-500 mt-1.5">Format Excel: Kode Material | Nama Material | Satuan | Stock di Sistem</p>
+     </div><button onclick="importExcel()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2.5 sm:py-2 rounded-lg font-medium transition-colors text-sm sm:text-base"> 📥 Import Excel </button>
+    </div>
+   </div><!-- Input Section -->
+   <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+    <h2 class="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">➕ Input Stock Opname</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-4">
+     <div class="sm:col-span-2 lg:col-span-1"><label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Kode Material</label>
+      <div class="flex gap-2"><input type="number" id="kodeMaterial" placeholder="Masukkan kode..." class="flex-1 px-2.5 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" oninput="refreshMaterialInfo()"> <button onclick="startBarcodeScanner()" class="bg-purple-600 hover:bg-purple-700 text-white px-2.5 sm:px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-1 text-sm sm:text-base whitespace-nowrap"> 📷 <span class="hidden xs:inline">Scan</span> </button>
+      </div>
+     </div>
+     <div class="sm:col-span-2 lg:col-span-1"><label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Nama Material</label> <input type="text" id="namaMaterial" readonly class="w-full px-2.5 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg bg-gray-50">
+     </div>
+     <div class="col-span-1"><label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Satuan</label> <input type="text" id="satuan" readonly class="w-full px-2.5 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg bg-gray-50">
+     </div>
+     <div class="col-span-1"><label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Stock di Sistem</label> <input type="number" id="stockSistem" readonly class="w-full px-2.5 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg bg-gray-50">
+     </div>
+     <div class="col-span-1"><label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Qty Aktual</label> <input type="number" id="qtyAktual" placeholder="0" class="w-full px-2.5 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+     </div>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-2 sm:gap-4"><button onclick="addStockOpname()" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2.5 sm:py-2 rounded-lg font-medium transition-colors text-sm sm:text-base"> ✅ Tambah Data </button> <button onclick="clearForm()" class="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white px-4 sm:px-6 py-2.5 sm:py-2 rounded-lg font-medium transition-colors text-sm sm:text-base"> 🔄 Clear Form </button>
+    </div>
+   </div><!-- Statistics -->
+   <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+    <div class="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+     <div class="flex items-center">
+      <div class="bg-blue-100 p-2 sm:p-3 rounded-full flex-shrink-0"><span class="text-xl sm:text-2xl">📦</span>
+      </div>
+      <div class="ml-2 sm:ml-4 min-w-0">
+       <p class="text-xs sm:text-sm text-gray-600 truncate">Total Material</p>
+       <p class="text-xl sm:text-2xl font-bold text-blue-600" id="totalMaterial">0</p>
+      </div>
+     </div>
+    </div>
+    <div class="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+     <div class="flex items-center">
+      <div class="bg-green-100 p-2 sm:p-3 rounded-full flex-shrink-0"><span class="text-xl sm:text-2xl">✅</span>
+      </div>
+      <div class="ml-2 sm:ml-4 min-w-0">
+       <p class="text-xs sm:text-sm text-gray-600 truncate">Sudah Diopname</p>
+       <p class="text-xl sm:text-2xl font-bold text-green-600" id="sudahOpname">0</p>
+      </div>
+     </div>
+    </div>
+    <div class="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+     <div class="flex items-center">
+      <div class="bg-red-100 p-2 sm:p-3 rounded-full flex-shrink-0"><span class="text-xl sm:text-2xl">⚠️</span>
+      </div>
+      <div class="ml-2 sm:ml-4 min-w-0">
+       <p class="text-xs sm:text-sm text-gray-600 truncate">Selisih Minus</p>
+       <p class="text-xl sm:text-2xl font-bold text-red-600" id="selisihMinus">0</p>
+      </div>
+     </div>
+    </div>
+    <div class="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+     <div class="flex items-center">
+      <div class="bg-yellow-100 p-2 sm:p-3 rounded-full flex-shrink-0"><span class="text-xl sm:text-2xl">📈</span>
+      </div>
+      <div class="ml-2 sm:ml-4 min-w-0">
+       <p class="text-xs sm:text-sm text-gray-600 truncate">Selisih Plus</p>
+       <p class="text-xl sm:text-2xl font-bold text-yellow-600" id="selisihPlus">0</p>
+      </div>
+     </div>
+    </div>
+   </div><!-- Data Table -->
+   <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-4">
+     <h2 class="text-lg sm:text-xl font-semibold text-gray-800">📊 Data Stock Opname</h2>
+     <div class="flex flex-wrap gap-2"><button onclick="showBelumOpnameModal()" class="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"> 📋 <span class="hidden xs:inline">Belum</span> </button> <button onclick="exportToExcel()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"> 📥 <span class="hidden xs:inline">Export</span> </button> <button onclick="backupData()" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"> 💾 <span class="hidden xs:inline">Backup</span> </button> <button onclick="clearMasterData()" class="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"> 🗂️ <span class="hidden md:inline">Clear M</span> </button> <button onclick="clearAllData()" class="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"> 🗑️ <span class="hidden md:inline">Clear</span> </button>
+     </div>
+    </div>
+    <div class="table-container overflow-x-auto -mx-4 sm:mx-0">
+     <div class="inline-block min-w-full align-middle">
+      <table class="min-w-full border-collapse">
+       <thead class="sticky-header bg-gray-50">
+        <tr>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">No</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Kode</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Nama Material</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Satuan</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Stock Sistem</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Qty Aktual</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Selisih</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Status</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Keterangan</th>
+         <th class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-sm whitespace-nowrap">Aksi</th>
+        </tr>
+       </thead>
+       <tbody id="dataTable">
+        <tr>
+         <td colspan="10" class="border border-gray-300 px-4 py-8 text-center text-gray-500 text-xs sm:text-sm">Belum ada data. Import master data Excel terlebih dahulu.</td>
+        </tr>
+       </tbody>
+      </table>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+        // Global variables
+        let masterData = [];
+        let stockOpnameData = [];
+        let codeReader = null;
+        let currentStream = null;
+
+        // Initialize barcode reader
+        function initializeBarcodeReader() {
+            if (typeof ZXing !== 'undefined') {
+                codeReader = new ZXing.BrowserMultiFormatReader();
+            }
+        }
+
+        // Start barcode scanner
+        async function startBarcodeScanner() {
+            if (!codeReader) {
+                initializeBarcodeReader();
+            }
+
+            if (!codeReader) {
+                showNotification('Barcode scanner tidak tersedia!', 'error');
+                return;
+            }
+
+            try {
+                // Check camera permission
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+
+                // Show scanner modal
+                showScannerModal();
+            } catch (error) {
+                if (error.name === 'NotAllowedError') {
+                    showNotification('Akses kamera ditolak. Silakan izinkan akses kamera!', 'error');
+                } else if (error.name === 'NotFoundError') {
+                    showNotification('Kamera tidak ditemukan!', 'error');
+                } else {
+                    showNotification('Error mengakses kamera: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // Show scanner modal
+        function showScannerModal() {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-purple-100 p-2 rounded-full mr-3">
+                                <span class="text-xl">📷</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">Scan Barcode Material</h3>
+                        </div>
+                        <button onclick="stopScanner()" 
+                                class="text-gray-500 hover:text-gray-700 text-2xl">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="scanner-overlay">
+                            <video id="scannerVideo" autoplay muted playsinline></video>
+                            <div class="scanner-frame"></div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2 text-center">Arahkan kamera ke barcode material</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="bg-blue-50 rounded-lg p-3">
+                            <p class="text-sm text-blue-800">
+                                <strong>Tips:</strong> Pastikan barcode terlihat jelas dalam frame hijau dan pencahayaan cukup terang.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 justify-end">
+                        <button onclick="stopScanner()" 
+                                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Batal
+                        </button>
+                        <button onclick="switchCamera()" 
+                                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                            🔄 Ganti Kamera
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Start scanning
+            startScanning();
+        }
+
+        // Start scanning process
+        async function startScanning() {
+            try {
+                const videoElement = document.getElementById('scannerVideo');
+                
+                // Get available video devices
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                // Prefer back camera if available
+                let selectedDevice = videoDevices.find(device => 
+                    device.label.toLowerCase().includes('back') || 
+                    device.label.toLowerCase().includes('rear')
+                ) || videoDevices[0];
+
+                // Start camera stream
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        deviceId: selectedDevice ? selectedDevice.deviceId : undefined,
+                        facingMode: 'environment' // Prefer back camera
+                    }
+                });
+
+                videoElement.srcObject = currentStream;
+
+                // Start barcode detection
+                codeReader.decodeFromVideoDevice(selectedDevice?.deviceId, videoElement, (result, error) => {
+                    if (result) {
+                        const scannedCode = result.getText();
+                        handleScannedBarcode(scannedCode);
+                    }
+                    // Ignore errors during scanning (they're normal)
+                });
+
+            } catch (error) {
+                showNotification('Error memulai scanner: ' + error.message, 'error');
+                stopScanner();
+            }
+        }
+
+        // Handle scanned barcode
+        function handleScannedBarcode(code) {
+            // Extract numeric code if needed
+            const numericCode = code.replace(/\D/g, '');
+            
+            if (numericCode) {
+                // Fill the material code input
+                document.getElementById('kodeMaterial').value = numericCode;
+                
+                // Refresh material info
+                refreshMaterialInfo();
+                
+                // Stop scanner and close modal
+                stopScanner();
+                
+                // Show success notification
+                showNotification(`Barcode berhasil discan: ${numericCode}`, 'success');
+                
+                // Focus on qty actual input
+                setTimeout(() => {
+                    document.getElementById('qtyAktual').focus();
+                }, 500);
+            } else {
+                showNotification('Barcode tidak valid atau tidak mengandung angka!', 'error');
+            }
+        }
+
+        // Switch camera (front/back)
+        async function switchCamera() {
+            try {
+                // Stop current stream
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+
+                // Get available video devices
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                if (videoDevices.length > 1) {
+                    // Find current device and switch to next one
+                    const videoElement = document.getElementById('scannerVideo');
+                    const currentDeviceId = currentStream?.getVideoTracks()[0]?.getSettings()?.deviceId;
+                    const currentIndex = videoDevices.findIndex(device => device.deviceId === currentDeviceId);
+                    const nextIndex = (currentIndex + 1) % videoDevices.length;
+                    const nextDevice = videoDevices[nextIndex];
+
+                    // Start new stream with different camera
+                    currentStream = await navigator.mediaDevices.getUserMedia({
+                        video: { deviceId: nextDevice.deviceId }
+                    });
+
+                    videoElement.srcObject = currentStream;
+
+                    // Restart barcode detection
+                    codeReader.decodeFromVideoDevice(nextDevice.deviceId, videoElement, (result, error) => {
+                        if (result) {
+                            const scannedCode = result.getText();
+                            handleScannedBarcode(scannedCode);
+                        }
+                    });
+
+                    showNotification('Kamera berhasil diganti!', 'success');
+                } else {
+                    showNotification('Hanya ada satu kamera tersedia!', 'info');
+                }
+            } catch (error) {
+                showNotification('Error mengganti kamera: ' + error.message, 'error');
+            }
+        }
+
+        // Stop scanner
+        function stopScanner() {
+            // Stop camera stream
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+
+            // Stop barcode reader
+            if (codeReader) {
+                codeReader.reset();
+            }
+
+            // Remove modal
+            const modal = document.querySelector('.fixed');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // Load data from localStorage on page load
+        function loadDataFromStorage() {
+            try {
+                const savedMasterData = localStorage.getItem('stockOpname_masterData');
+                const savedStockData = localStorage.getItem('stockOpname_stockData');
+                
+                if (savedMasterData) {
+                    masterData = JSON.parse(savedMasterData);
+                }
+                
+                if (savedStockData) {
+                    stockOpnameData = JSON.parse(savedStockData);
+                }
+                
+                updateStatistics();
+                renderTable();
+            } catch (error) {
+                console.error('Error loading data from storage:', error);
+            }
+        }
+
+        // Save data to localStorage
+        function saveDataToStorage() {
+            try {
+                localStorage.setItem('stockOpname_masterData', JSON.stringify(masterData));
+                localStorage.setItem('stockOpname_stockData', JSON.stringify(stockOpnameData));
+            } catch (error) {
+                console.error('Error saving data to storage:', error);
+            }
+        }
+
+        // Import Excel function
+        function importExcel() {
+            const fileInput = document.getElementById('excelFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showNotification('Pilih file Excel terlebih dahulu!', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                    
+                    // Skip header row and process data
+                    masterData = [];
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (row[0]) { // Check if kode material exists
+                            masterData.push({
+                                kode: row[0],
+                                nama: row[1] || '',
+                                satuan: row[2] || '',
+                                stockSistem: row[3] || 0
+                            });
+                        }
+                    }
+                    
+                    saveDataToStorage();
+                    showNotification(`Berhasil import ${masterData.length} data material!`, 'success');
+                    updateStatistics();
+                    renderTable();
+                } catch (error) {
+                    showNotification('Error membaca file Excel!', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Refresh material info when kode material changes
+        function refreshMaterialInfo() {
+            const kode = document.getElementById('kodeMaterial').value;
+            const material = masterData.find(m => m.kode == kode);
+            
+            if (material) {
+                document.getElementById('namaMaterial').value = material.nama;
+                document.getElementById('satuan').value = material.satuan;
+                document.getElementById('stockSistem').value = material.stockSistem;
+            } else {
+                document.getElementById('namaMaterial').value = '';
+                document.getElementById('satuan').value = '';
+                document.getElementById('stockSistem').value = '';
+            }
+        }
+
+        // Add stock opname data
+        function addStockOpname() {
+            const kode = document.getElementById('kodeMaterial').value;
+            const nama = document.getElementById('namaMaterial').value;
+            const satuan = document.getElementById('satuan').value;
+            const stockSistem = parseFloat(document.getElementById('stockSistem').value) || 0;
+            const qtyAktual = parseFloat(document.getElementById('qtyAktual').value) || 0;
+
+            if (!kode || !nama) {
+                showNotification('Kode material tidak ditemukan di master data!', 'error');
+                return;
+            }
+
+            // Check if already exists
+            const existingIndex = stockOpnameData.findIndex(item => item.kode == kode);
+            
+            const newData = {
+                kode: kode,
+                nama: nama,
+                satuan: satuan,
+                stockSistem: stockSistem,
+                qtyAktual: qtyAktual,
+                selisih: qtyAktual - stockSistem,
+                keterangan: '',
+                timestamp: new Date().toLocaleString('id-ID')
+            };
+
+            if (existingIndex >= 0) {
+                // Material already exists, show confirmation popup
+                const existingData = stockOpnameData[existingIndex];
+                showDuplicateConfirmation(existingData, newData, existingIndex);
+            } else {
+                stockOpnameData.push(newData);
+                showNotification('Data berhasil ditambahkan!', 'success');
+                clearForm();
+                saveDataToStorage();
+                updateStatistics();
+                renderTable();
+            }
+        }
+
+        // Show duplicate material confirmation popup
+        function showDuplicateConfirmation(existingData, newData, existingIndex) {
+            // Store data globally for button handlers
+            window.duplicateUpdateData = {
+                existingIndex: existingIndex,
+                newData: newData
+            };
+            
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-yellow-100 p-2 rounded-full mr-3">
+                            <span class="text-xl">⚠️</span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800">Material Sudah Diinput</h3>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <p class="text-gray-600 mb-4">Material <strong>${existingData.nama}</strong> (Kode: ${existingData.kode}) sudah pernah diinput sebelumnya.</p>
+                        
+                        <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                            <h4 class="font-medium text-gray-700 mb-2">Data Lama:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>Qty Aktual: <span class="font-medium">${existingData.qtyAktual.toLocaleString('id-ID')}</span></div>
+                                <div>Selisih: <span class="font-medium ${existingData.selisih >= 0 ? 'text-green-600' : 'text-red-600'}">${existingData.selisih >= 0 ? '+' : ''}${existingData.selisih.toLocaleString('id-ID')}</span></div>
+                                <div>Waktu Input: <span class="font-medium">${existingData.timestamp}</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 rounded-lg p-3 mb-4">
+                            <h4 class="font-medium text-gray-700 mb-2">Data Baru:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>Qty Aktual: <span class="font-medium">${newData.qtyAktual.toLocaleString('id-ID')}</span></div>
+                                <div>Selisih: <span class="font-medium ${newData.selisih >= 0 ? 'text-green-600' : 'text-red-600'}">${newData.selisih >= 0 ? '+' : ''}${newData.selisih.toLocaleString('id-ID')}</span></div>
+                            </div>
+                        </div>
+                        
+                        <p class="text-gray-600 text-sm">Apakah Anda ingin merevisi data dengan qty yang baru?</p>
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row gap-3 justify-end">
+                        <button onclick="cancelDuplicateUpdate()" 
+                                class="w-full sm:w-auto px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            Tidak, Gunakan Data Lama
+                        </button>
+                        <button onclick="confirmDuplicateUpdate()" 
+                                class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            Ya, Revisi Data
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Cancel duplicate update
+        function cancelDuplicateUpdate() {
+            document.querySelector('.fixed').remove();
+            clearForm();
+            showNotification('Data lama tetap digunakan', 'info');
+            
+            // Clean up global data
+            if (window.duplicateUpdateData) {
+                delete window.duplicateUpdateData;
+            }
+        }
+
+        // Confirm duplicate update
+        function confirmDuplicateUpdate() {
+            if (window.duplicateUpdateData) {
+                const { existingIndex, newData } = window.duplicateUpdateData;
+                stockOpnameData[existingIndex] = newData;
+                document.querySelector('.fixed').remove();
+                clearForm();
+                saveDataToStorage();
+                updateStatistics();
+                renderTable();
+                showNotification('Data berhasil direvisi!', 'success');
+                
+                // Clean up global data
+                delete window.duplicateUpdateData;
+            }
+        }
+
+        // Clear form
+        function clearForm() {
+            document.getElementById('kodeMaterial').value = '';
+            document.getElementById('namaMaterial').value = '';
+            document.getElementById('satuan').value = '';
+            document.getElementById('stockSistem').value = '';
+            document.getElementById('qtyAktual').value = '';
+        }
+
+        // Delete stock opname item
+        function deleteItem(kode) {
+            const index = stockOpnameData.findIndex(item => item.kode == kode);
+            if (index >= 0) {
+                stockOpnameData.splice(index, 1);
+                saveDataToStorage();
+                showNotification('Data berhasil dihapus!', 'success');
+                updateStatistics();
+                renderTable();
+            }
+        }
+
+        // Edit stock opname item
+        function editItem(kode) {
+            const item = stockOpnameData.find(item => item.kode == kode);
+            if (item) {
+                document.getElementById('kodeMaterial').value = item.kode;
+                document.getElementById('namaMaterial').value = item.nama;
+                document.getElementById('satuan').value = item.satuan;
+                document.getElementById('stockSistem').value = item.stockSistem;
+                document.getElementById('qtyAktual').value = item.qtyAktual;
+            }
+        }
+
+        // Show keterangan modal
+        function showKeteranganModal(kode) {
+            const item = stockOpnameData.find(item => item.kode == kode);
+            if (!item) return;
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-purple-100 p-2 rounded-full mr-3">
+                                <span class="text-xl">📝</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">Keterangan Selisih</h3>
+                        </div>
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="text-gray-500 hover:text-gray-700 text-2xl">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <h4 class="font-medium text-gray-700 mb-2">Informasi Material:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div><strong>Kode:</strong> ${item.kode}</div>
+                                <div><strong>Nama:</strong> ${item.nama}</div>
+                                <div><strong>Satuan:</strong> ${item.satuan}</div>
+                                <div><strong>Stock Sistem:</strong> ${item.stockSistem.toLocaleString('id-ID')}</div>
+                                <div><strong>Qty Aktual:</strong> ${item.qtyAktual.toLocaleString('id-ID')}</div>
+                                <div><strong>Selisih:</strong> <span class="${item.selisih >= 0 ? 'text-green-600' : 'text-red-600'} font-semibold">${item.selisih >= 0 ? '+' : ''}${item.selisih.toLocaleString('id-ID')}</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Keterangan Selisih:</label>
+                            <textarea id="keteranganInput" rows="4" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                      placeholder="Masukkan keterangan penyebab selisih...">${item.keterangan || ''}</textarea>
+                            <p class="text-xs text-gray-500 mt-1">Contoh: Material rusak, kehilangan, kesalahan pencatatan, dll.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 justify-end">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Batal
+                        </button>
+                        <button onclick="saveKeterangan('${item.kode}')" 
+                                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                            Simpan Keterangan
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Focus on textarea
+            setTimeout(() => {
+                document.getElementById('keteranganInput').focus();
+            }, 100);
+        }
+
+        // Save keterangan
+        function saveKeterangan(kode) {
+            const keterangan = document.getElementById('keteranganInput').value.trim();
+            const itemIndex = stockOpnameData.findIndex(item => item.kode == kode);
+            
+            if (itemIndex >= 0) {
+                stockOpnameData[itemIndex].keterangan = keterangan;
+                saveDataToStorage();
+                renderTable();
+                document.querySelector('.fixed').remove();
+                showNotification('Keterangan berhasil disimpan!', 'success');
+            }
+        }
+
+        // Update statistics
+        function updateStatistics() {
+            const totalMaterial = masterData.length;
+            const sudahOpname = stockOpnameData.length;
+            const selisihMinus = stockOpnameData.filter(item => item.selisih < 0).length;
+            const selisihPlus = stockOpnameData.filter(item => item.selisih > 0).length;
+
+            document.getElementById('totalMaterial').textContent = totalMaterial;
+            document.getElementById('sudahOpname').textContent = sudahOpname;
+            document.getElementById('selisihMinus').textContent = selisihMinus;
+            document.getElementById('selisihPlus').textContent = selisihPlus;
+        }
+
+        // Render table
+        function renderTable() {
+            const tbody = document.getElementById('dataTable');
+            
+            if (stockOpnameData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                            ${masterData.length > 0 ? 'Belum ada data stock opname. Mulai input data di atas.' : 'Belum ada data. Import master data Excel terlebih dahulu.'}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = stockOpnameData.map((item, index) => {
+                const statusClass = item.selisih === 0 ? 'bg-green-100 text-green-800' : 
+                                  item.selisih < 0 ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
+                const statusText = item.selisih === 0 ? 'Sesuai' : 
+                                 item.selisih < 0 ? 'Kurang' : 'Lebih';
+                
+                // Format keterangan untuk preview (potong jika terlalu panjang)
+                const keteranganPreview = item.keterangan && item.keterangan.length > 20 
+                    ? item.keterangan.substring(0, 20) + '...' 
+                    : item.keterangan || '';
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">${index + 1}</td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 font-mono text-xs sm:text-sm">${item.kode}</td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">${item.nama}</td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">${item.satuan}</td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-right text-xs sm:text-sm">${item.stockSistem.toLocaleString('id-ID')}</td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-right text-xs sm:text-sm">${item.qtyAktual.toLocaleString('id-ID')}</td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-xs sm:text-sm ${item.selisih >= 0 ? 'text-green-600' : 'text-red-600'}">
+                            ${item.selisih >= 0 ? '+' : ''}${item.selisih.toLocaleString('id-ID')}
+                        </td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3">
+                            <span class="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${statusClass} whitespace-nowrap">${statusText}</span>
+                        </td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3">
+                            <div class="flex items-center gap-1 sm:gap-2">
+                                <button onclick="showKeteranganModal('${item.kode}')" 
+                                        class="bg-purple-500 hover:bg-purple-600 text-white px-1.5 sm:px-2 py-1 rounded text-xs flex items-center gap-1 flex-shrink-0"
+                                        title="Tambah/Edit Keterangan">
+                                    📝
+                                </button>
+                                <span class="text-xs text-gray-600 truncate max-w-[100px] sm:max-w-[150px]" title="${item.keterangan || 'Belum ada keterangan'}">${keteranganPreview}</span>
+                            </div>
+                        </td>
+                        <td class="border border-gray-300 px-2 sm:px-4 py-2 sm:py-3">
+                            <div class="flex gap-1 sm:gap-2">
+                                <button onclick="editItem('${item.kode}')" 
+                                        class="bg-blue-500 hover:bg-blue-600 text-white px-1.5 sm:px-2 py-1 rounded text-xs whitespace-nowrap">
+                                    ✏️
+                                </button>
+                                <button onclick="deleteItem('${item.kode}')" 
+                                        class="bg-red-500 hover:bg-red-600 text-white px-1.5 sm:px-2 py-1 rounded text-xs whitespace-nowrap">
+                                    🗑️
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Backup data to JSON file
+        function backupData() {
+            const backupData = {
+                masterData: masterData,
+                stockOpnameData: stockOpnameData,
+                backupDate: new Date().toISOString(),
+                version: '1.0'
+            };
+
+            const dataStr = JSON.stringify(backupData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `Stock_Opname_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showNotification('Backup data berhasil diunduh!', 'success');
+        }
+
+        // Export to Excel
+        function exportToExcel() {
+            if (stockOpnameData.length === 0) {
+                showNotification('Tidak ada data untuk diekspor!', 'error');
+                return;
+            }
+
+            // Show unit input popup
+            showUnitInputPopup();
+        }
+
+        // Show unit input popup for Excel export
+        function showUnitInputPopup() {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-green-100 p-2 rounded-full mr-3">
+                            <span class="text-xl">📥</span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800">Export Data Excel</h3>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nama Unit/Departemen:</label>
+                        <input type="text" id="unitNameInput" placeholder="Contoh: Gudang Utama, Produksi, dll..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <p class="text-xs text-gray-500 mt-1">Nama unit akan ditampilkan di header Excel</p>
+                    </div>
+                    <div class="flex gap-4 justify-end">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Batal
+                        </button>
+                        <button onclick="processExcelExport()" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            Download Excel
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Focus on input field
+            setTimeout(() => {
+                document.getElementById('unitNameInput').focus();
+            }, 100);
+            
+            // Handle Enter key
+            document.getElementById('unitNameInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    processExcelExport();
+                }
+            });
+        }
+
+        // Process Excel export with unit name
+        function processExcelExport() {
+            const unitName = document.getElementById('unitNameInput').value.trim();
+            
+            if (!unitName) {
+                showNotification('Nama unit harus diisi!', 'error');
+                return;
+            }
+
+            // Get current month in Indonesian
+            const months = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+            ];
+            const currentMonth = months[new Date().getMonth()];
+            const currentYear = new Date().getFullYear();
+
+            // Create header text
+            const headerText = `Data Stock Opname Material Unit ${unitName} Bulan ${currentMonth} ${currentYear}`;
+
+            // Prepare export data
+            const exportData = stockOpnameData.map((item, index) => ({
+                'No': index + 1,
+                'Kode Material': item.kode,
+                'Nama Material': item.nama,
+                'Satuan': item.satuan,
+                'Stock Sistem': item.stockSistem,
+                'Qty Aktual': item.qtyAktual,
+                'Selisih': item.selisih,
+                'Status': item.selisih === 0 ? 'Sesuai' : item.selisih < 0 ? 'Kurang' : 'Lebih',
+                'Keterangan Selisih': item.keterangan || '',
+                'Waktu Input': item.timestamp
+            }));
+
+            // Create worksheet
+            const ws = XLSX.utils.json_to_sheet(exportData, { origin: 'A3' });
+
+            // Add header text at A1
+            XLSX.utils.sheet_add_aoa(ws, [[headerText]], { origin: 'A1' });
+
+            // Set column widths
+            const colWidths = [
+                { wch: 5 },   // No
+                { wch: 15 },  // Kode Material
+                { wch: 30 },  // Nama Material
+                { wch: 10 },  // Satuan
+                { wch: 12 },  // Stock Sistem
+                { wch: 12 },  // Qty Aktual
+                { wch: 12 },  // Selisih
+                { wch: 10 },  // Status
+                { wch: 35 },  // Keterangan Selisih
+                { wch: 20 }   // Waktu Input
+            ];
+            ws['!cols'] = colWidths;
+
+            // Merge cells for header (A1 to J1)
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
+
+            // Define border style
+            const borderStyle = {
+                top: { style: 'thin', color: { rgb: '000000' } },
+                bottom: { style: 'thin', color: { rgb: '000000' } },
+                left: { style: 'thin', color: { rgb: '000000' } },
+                right: { style: 'thin', color: { rgb: '000000' } }
+            };
+
+            // Style the header cell (bold and centered)
+            if (!ws['A1'].s) ws['A1'].s = {};
+            ws['A1'].s = {
+                font: { bold: true, sz: 14 },
+                alignment: { horizontal: 'center', vertical: 'center' },
+                fill: { fgColor: { rgb: 'E3F2FD' } }
+            };
+
+            // Calculate the range for data table (including headers)
+            const dataStartRow = 3;
+            const dataEndRow = dataStartRow + stockOpnameData.length;
+            const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+
+            // Style the column headers (row 3) with borders
+            columns.forEach(col => {
+                const cellRef = col + dataStartRow;
+                if (ws[cellRef]) {
+                    if (!ws[cellRef].s) ws[cellRef].s = {};
+                    ws[cellRef].s = {
+                        font: { bold: true },
+                        fill: { fgColor: { rgb: 'F5F5F5' } },
+                        alignment: { horizontal: 'center', vertical: 'center' },
+                        border: borderStyle
+                    };
+                }
+            });
+
+            // Apply borders and alignment to all data cells
+            for (let row = dataStartRow + 1; row <= dataEndRow; row++) {
+                columns.forEach((col, colIndex) => {
+                    const cellRef = col + row;
+                    if (ws[cellRef]) {
+                        if (!ws[cellRef].s) ws[cellRef].s = {};
+                        
+                        // Define alignment based on column type
+                        let horizontalAlign = 'left';
+                        if (colIndex === 0 || colIndex === 4 || colIndex === 5 || colIndex === 6 || colIndex === 7) {
+                            // No, Stock Sistem, Qty Aktual, Selisih, Status - center aligned
+                            horizontalAlign = 'center';
+                        } else if (colIndex === 1) {
+                            // Kode Material - center aligned
+                            horizontalAlign = 'center';
+                        }
+                        
+                        ws[cellRef].s = {
+                            ...ws[cellRef].s,
+                            border: borderStyle,
+                            alignment: { 
+                                horizontal: horizontalAlign,
+                                vertical: 'center'
+                            }
+                        };
+                    }
+                });
+            }
+
+            // Create workbook and add worksheet
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Stock Opname');
+            
+            // Generate filename
+            const fileName = `Stock_Opname_${unitName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentMonth}_${currentYear}.xlsx`;
+            
+            // Download file
+            XLSX.writeFile(wb, fileName);
+            
+            // Close modal and show success message
+            document.querySelector('.fixed').remove();
+            showNotification(`Data berhasil diekspor untuk unit ${unitName}!`, 'success');
+        }
+
+        // Clear master data
+        function clearMasterData() {
+            if (masterData.length === 0) {
+                showNotification('Tidak ada master data untuk dihapus!', 'error');
+                return;
+            }
+
+            // Create custom confirmation modal
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-orange-100 p-2 rounded-full mr-3">
+                            <span class="text-xl">🗂️</span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800">Konfirmasi Hapus Master Data</h3>
+                    </div>
+                    <div class="mb-6">
+                        <p class="text-gray-600 mb-4">Apakah Anda yakin ingin menghapus semua master data material?</p>
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <p class="text-sm text-yellow-800">
+                                <strong>Peringatan:</strong> Menghapus master data akan menghapus semua data stock opname yang sudah diinput karena tidak ada referensi material.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 justify-end">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Batal
+                        </button>
+                        <button onclick="confirmClearMaster()" 
+                                class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                            Hapus Master Data
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function confirmClearMaster() {
+            masterData = [];
+            stockOpnameData = []; // Clear stock opname data too since master data is gone
+            saveDataToStorage();
+            document.querySelector('.fixed').remove();
+            showNotification('Master data dan semua data stock opname berhasil dihapus!', 'success');
+            updateStatistics();
+            renderTable();
+            clearForm(); // Clear form fields
+        }
+
+        // Clear all data
+        function clearAllData() {
+            if (stockOpnameData.length === 0) {
+                showNotification('Tidak ada data untuk dihapus!', 'error');
+                return;
+            }
+
+            // Create custom confirmation modal
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Hapus</h3>
+                    <p class="text-gray-600 mb-6">Apakah Anda yakin ingin menghapus semua data stock opname?</p>
+                    <div class="flex gap-4 justify-end">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Batal
+                        </button>
+                        <button onclick="confirmClearAll()" 
+                                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                            Hapus Semua
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function confirmClearAll() {
+            stockOpnameData = [];
+            saveDataToStorage();
+            document.querySelector('.fixed').remove();
+            showNotification('Semua data berhasil dihapus!', 'success');
+            updateStatistics();
+            renderTable();
+        }
+
+        // Show belum opname modal
+        function showBelumOpnameModal() {
+            if (masterData.length === 0) {
+                showNotification('Master data belum diimport!', 'error');
+                return;
+            }
+
+            // Find materials that haven't been counted yet
+            const belumOpname = masterData.filter(master => {
+                return !stockOpnameData.some(opname => opname.kode == master.kode);
+            });
+
+            const totalMaster = masterData.length;
+            const totalSudahOpname = stockOpnameData.length;
+            const totalBelumOpname = belumOpname.length;
+            const persentaseSelesai = totalMaster > 0 ? Math.round((totalSudahOpname / totalMaster) * 100) : 0;
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-amber-100 p-2 rounded-full mr-3">
+                                <span class="text-2xl">📋</span>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800">Material Belum Diopname</h3>
+                                <p class="text-sm text-gray-600">Daftar material yang belum dilakukan stock opname</p>
+                            </div>
+                        </div>
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="text-gray-500 hover:text-gray-700 text-2xl">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">Progress Stock Opname</span>
+                            <span class="text-sm font-bold text-blue-600">${persentaseSelesai}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-4">
+                            <div class="bg-gradient-to-r from-blue-500 to-blue-600 h-4 rounded-full transition-all duration-500" 
+                                 style="width: ${persentaseSelesai}%"></div>
+                        </div>
+                        <div class="flex justify-between mt-2 text-xs text-gray-600">
+                            <span>✅ Sudah: ${totalSudahOpname} material</span>
+                            <span>⏳ Belum: ${totalBelumOpname} material</span>
+                            <span>📦 Total: ${totalMaster} material</span>
+                        </div>
+                    </div>
+
+                    ${totalBelumOpname === 0 ? `
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                            <div class="text-5xl mb-3">🎉</div>
+                            <h4 class="text-lg font-semibold text-green-800 mb-2">Stock Opname Selesai!</h4>
+                            <p class="text-green-700">Semua material sudah berhasil diopname. Silakan export data untuk laporan.</p>
+                        </div>
+                    ` : `
+                        <!-- Summary Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="flex items-center">
+                                    <div class="bg-red-100 p-2 rounded-full mr-3">
+                                        <span class="text-xl">⏳</span>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-red-700">Belum Diopname</p>
+                                        <p class="text-2xl font-bold text-red-800">${totalBelumOpname}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="flex items-center">
+                                    <div class="bg-blue-100 p-2 rounded-full mr-3">
+                                        <span class="text-xl">📊</span>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-blue-700">Total Stock Sistem</p>
+                                        <p class="text-2xl font-bold text-blue-800">${belumOpname.reduce((sum, item) => sum + (item.stockSistem || 0), 0).toLocaleString('id-ID')}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <div class="flex items-center">
+                                    <div class="bg-purple-100 p-2 rounded-full mr-3">
+                                        <span class="text-xl">📋</span>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-purple-700">Perlu Dicek</p>
+                                        <p class="text-2xl font-bold text-purple-800">${totalBelumOpname}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Export Button for Belum Opname -->
+                        <div class="mb-4 flex justify-end">
+                            <button onclick="exportBelumOpnameToExcel()" 
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm">
+                                📥 Export Daftar Belum Opname
+                            </button>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="border border-gray-300 rounded-lg overflow-hidden">
+                            <div class="max-h-96 overflow-y-auto">
+                                <table class="w-full border-collapse">
+                                    <thead class="sticky top-0 bg-gray-50">
+                                        <tr>
+                                            <th class="border-b border-gray-300 px-4 py-3 text-left font-semibold text-gray-700 bg-gray-50">No</th>
+                                            <th class="border-b border-gray-300 px-4 py-3 text-left font-semibold text-gray-700 bg-gray-50">Kode Material</th>
+                                            <th class="border-b border-gray-300 px-4 py-3 text-left font-semibold text-gray-700 bg-gray-50">Nama Material</th>
+                                            <th class="border-b border-gray-300 px-4 py-3 text-left font-semibold text-gray-700 bg-gray-50">Satuan</th>
+                                            <th class="border-b border-gray-300 px-4 py-3 text-right font-semibold text-gray-700 bg-gray-50">Stock di Sistem</th>
+                                            <th class="border-b border-gray-300 px-4 py-3 text-center font-semibold text-gray-700 bg-gray-50">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${belumOpname.map((item, index) => `
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="border-b border-gray-200 px-4 py-3">${index + 1}</td>
+                                                <td class="border-b border-gray-200 px-4 py-3 font-mono">${item.kode}</td>
+                                                <td class="border-b border-gray-200 px-4 py-3">${item.nama}</td>
+                                                <td class="border-b border-gray-200 px-4 py-3">${item.satuan}</td>
+                                                <td class="border-b border-gray-200 px-4 py-3 text-right">${(item.stockSistem || 0).toLocaleString('id-ID')}</td>
+                                                <td class="border-b border-gray-200 px-4 py-3 text-center">
+                                                    <button onclick="quickAddFromBelumOpname('${item.kode}')" 
+                                                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">
+                                                        ➕ Input Sekarang
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `}
+                    
+                    <div class="flex gap-4 justify-end mt-6">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Quick add from belum opname
+        function quickAddFromBelumOpname(kode) {
+            // Close modal
+            const modal = document.querySelector('.fixed');
+            if (modal) modal.remove();
+
+            // Fill form
+            document.getElementById('kodeMaterial').value = kode;
+            refreshMaterialInfo();
+
+            // Focus on qty input
+            document.getElementById('qtyAktual').focus();
+
+            // Scroll to input section
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            showNotification(`Material ${kode} siap diinput!`, 'info');
+        }
+
+        // Export belum opname to Excel
+        function exportBelumOpnameToExcel() {
+            const belumOpname = masterData.filter(master => {
+                return !stockOpnameData.some(opname => opname.kode == master.kode);
+            });
+
+            if (belumOpname.length === 0) {
+                showNotification('Tidak ada material yang belum diopname!', 'info');
+                return;
+            }
+
+            // Prepare export data
+            const exportData = belumOpname.map((item, index) => ({
+                'No': index + 1,
+                'Kode Material': item.kode,
+                'Nama Material': item.nama,
+                'Satuan': item.satuan,
+                'Stock di Sistem': item.stockSistem || 0
+            }));
+
+            // Create worksheet
+            const ws = XLSX.utils.json_to_sheet(exportData);
+
+            // Set column widths
+            const colWidths = [
+                { wch: 5 },   // No
+                { wch: 15 },  // Kode Material
+                { wch: 35 },  // Nama Material
+                { wch: 10 },  // Satuan
+                { wch: 15 }   // Stock di Sistem
+            ];
+            ws['!cols'] = colWidths;
+
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Belum Opname');
+            
+            // Generate filename with date
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const fileName = `Material_Belum_Opname_${dateStr}.xlsx`;
+            
+            // Download file
+            XLSX.writeFile(wb, fileName);
+            
+            showNotification(`Daftar ${belumOpname.length} material belum opname berhasil diekspor!`, 'success');
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-transform duration-300 translate-x-full`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Initialize - Load data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDataFromStorage();
+            initializeBarcodeReader();
+        });
+        
+        // Also load data immediately in case DOMContentLoaded already fired
+        loadDataFromStorage();
+        initializeBarcodeReader();
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a3d5e475494ce5a',t:'MTc2NDAzNDA5NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
